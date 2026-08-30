@@ -6,7 +6,7 @@
 const express = require('express');
 const { body, param, validationResult } = require('express-validator');
 const store = require('../data/store');
-const { BUILD_SIGNATURE } = require('./signature');
+const { BUILD_SIGNATURE } = require('../signature');
 
 const router = express.Router();
 
