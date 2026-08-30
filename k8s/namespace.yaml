@@ -1,0 +1,14 @@
+# ================================================================
+# CloudForge — Kubernetes Namespace
+# ================================================================
+# Isolates all CloudForge resources in their own namespace.
+# This is a best practice — keeps your app separate from
+# other workloads running on the same cluster.
+# ================================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cloudforge
+  labels:
+    app: cloudforge
+    managed-by: kubectl

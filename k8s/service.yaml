@@ -1,0 +1,26 @@
+# ================================================================
+# CloudForge — Kubernetes Service
+# ================================================================
+# WHAT THIS DOES:
+#   - Exposes the CloudForge pods on port 80 inside the cluster
+#   - Load-balances traffic across all ready pods
+#   - Type: NodePort so we can access it from outside Minikube
+#     (Minikube doesn't support LoadBalancer without a tunnel)
+# ================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: cloudforge
+  namespace: cloudforge
+  labels:
+    app: cloudforge
+spec:
+  type: NodePort
+  selector:
+    app: cloudforge
+  ports:
+    - name: http
+      port: 80
+      targetPort: 3000
+      protocol: TCP
+      nodePort: 30000    # Accessible at <minikube-ip>:30000

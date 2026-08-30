@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="CloudForge — Automated DevOps Pipeline Dashboard. Monitor builds, deployments, and AI-powered log analysis.">
+  <title>CloudForge — DevOps Pipeline Dashboard</title>
+  <link rel="icon" type="image/svg+xml" href="/assets/logo.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <!-- ========== Header ========== -->
+  <header class="header" id="header">
+    <div class="header__inner">
+      <a href="/" class="header__brand" id="nav-brand">
+        <img src="/assets/logo.svg" alt="CloudForge" class="header__logo">
+        <span class="header__title">CloudForge</span>
+        <span class="header__badge">Pipeline</span>
+      </a>
+      <nav class="header__nav" id="nav-links">
+        <a href="#overview" class="header__link header__link--active" data-section="overview">Overview</a>
+        <a href="#builds" class="header__link" data-section="builds">Builds</a>
+        <a href="#deployments" class="header__link" data-section="deployments">Deployments</a>
+        <a href="#ai-summary" class="header__link" data-section="ai-summary">AI Summary</a>
+      </nav>
+      <div class="header__actions">
+        <span class="header__status" id="connection-status">
+          <span class="status-dot status-dot--online"></span>
+          Connected
+        </span>
+        <button class="btn btn--sm btn--ghost" id="btn-refresh" aria-label="Refresh data">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        </button>
+        <button class="btn btn--sm btn--ghost header__menu-btn" id="btn-menu" aria-label="Toggle menu">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ========== Main Content ========== -->
+  <main class="main" id="main-content">
+
+    <!-- ===== Overview Section ===== -->
+    <section class="section" id="overview">
+      <div class="section__header">
+        <h1 class="section__title">Pipeline Overview</h1>
+        <p class="section__subtitle">Real-time status of your CI/CD pipeline</p>
+      </div>
+
+      <!-- Stats Cards -->
+      <div class="stats-grid" id="stats-grid">
+        <div class="stat-card" id="stat-builds">
+          <div class="stat-card__icon stat-card__icon--blue">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          </div>
+          <div class="stat-card__content">
+            <span class="stat-card__value" id="stat-total-builds">—</span>
+            <span class="stat-card__label">Total Builds</span>
+          </div>
+        </div>
+        <div class="stat-card" id="stat-success">
+          <div class="stat-card__icon stat-card__icon--green">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <div class="stat-card__content">
+            <span class="stat-card__value" id="stat-success-rate">—</span>
+            <span class="stat-card__label">Success Rate</span>
+          </div>
+        </div>
+        <div class="stat-card" id="stat-deploys">
+          <div class="stat-card__icon stat-card__icon--teal">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+          </div>
+          <div class="stat-card__content">
+            <span class="stat-card__value" id="stat-total-deploys">—</span>
+            <span class="stat-card__label">Deployments</span>
+          </div>
+        </div>
+        <div class="stat-card" id="stat-avg-time">
+          <div class="stat-card__icon stat-card__icon--amber">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <div class="stat-card__content">
+            <span class="stat-card__value" id="stat-avg-build">—</span>
+            <span class="stat-card__label">Avg Build Time</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Last Build & Deploy Cards -->
+      <div class="info-cards" id="info-cards">
+        <div class="info-card" id="last-build-card">
+          <div class="info-card__header">
+            <h3 class="info-card__title">Last Build</h3>
+            <span class="badge badge--pending" id="last-build-status">—</span>
+          </div>
+          <div class="info-card__body">
+            <div class="info-card__row">
+              <span class="info-card__label">Commit</span>
+              <code class="info-card__value mono" id="last-build-sha">—</code>
+            </div>
+            <div class="info-card__row">
+              <span class="info-card__label">Branch</span>
+              <span class="info-card__value" id="last-build-branch">—</span>
+            </div>
+            <div class="info-card__row">
+              <span class="info-card__label">Duration</span>
+              <span class="info-card__value" id="last-build-duration">—</span>
+            </div>
+            <div class="info-card__row">
+              <span class="info-card__label">Time</span>
+              <span class="info-card__value" id="last-build-time">—</span>
+            </div>
+          </div>
+        </div>
+        <div class="info-card" id="last-deploy-card">
+          <div class="info-card__header">
+            <h3 class="info-card__title">Last Deployment</h3>
+            <span class="badge badge--pending" id="last-deploy-status">—</span>
+          </div>
+          <div class="info-card__body">
+            <div class="info-card__row">
+              <span class="info-card__label">Version</span>
+              <span class="info-card__value mono" id="last-deploy-version">—</span>
+            </div>
+            <div class="info-card__row">
+              <span class="info-card__label">Environment</span>
+              <span class="info-card__value" id="last-deploy-env">—</span>
+            </div>
+            <div class="info-card__row">
+              <span class="info-card__label">Commit</span>
+              <code class="info-card__value mono" id="last-deploy-sha">—</code>
+            </div>
+            <div class="info-card__row">
+              <span class="info-card__label">Time</span>
+              <span class="info-card__value" id="last-deploy-time">—</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Builds Section ===== -->
+    <section class="section" id="builds">
+      <div class="section__header">
+        <h2 class="section__title">Build History</h2>
+        <p class="section__subtitle">CI pipeline runs — automated on every push</p>
+      </div>
+      <div class="table-wrapper">
+        <table class="table" id="builds-table">
+          <thead>
+            <tr>
+              <th>Status</th>
+              <th>Commit</th>
+              <th>Branch</th>
+              <th>Trigger</th>
+              <th>Duration</th>
+              <th>Time</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="builds-tbody">
+            <tr class="table__empty">
+              <td colspan="7">
+                <div class="table__loader">
+                  <div class="spinner"></div>
+                  <span>Loading builds…</span>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===== Deployments Section ===== -->
+    <section class="section" id="deployments">
+      <div class="section__header">
+        <h2 class="section__title">Deployment History</h2>
+        <p class="section__subtitle">Automated deployments — zero-downtime rolling updates</p>
+      </div>
+      <div class="table-wrapper">
+        <table class="table" id="deployments-table">
+          <thead>
+            <tr>
+              <th>Status</th>
+              <th>Version</th>
+              <th>Environment</th>
+              <th>Commit</th>
+              <th>Duration</th>
+              <th>Time</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="deployments-tbody">
+            <tr class="table__empty">
+              <td colspan="7">
+                <div class="table__loader">
+                  <div class="spinner"></div>
+                  <span>Loading deployments…</span>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===== AI Summary Section ===== -->
+    <section class="section" id="ai-summary">
+      <div class="section__header">
+        <h2 class="section__title">AI Log Summarizer</h2>
+        <p class="section__subtitle">Powered by Google Gemini — plain-English deployment insights</p>
+      </div>
+      <div class="ai-panel" id="ai-panel">
+        <div class="ai-panel__select">
+          <label for="ai-select-type" class="ai-panel__label">Analyze</label>
+          <select id="ai-select-type" class="select">
+            <option value="deployment">Latest Deployment</option>
+            <option value="build">Latest Build</option>
+          </select>
+          <button class="btn btn--primary" id="btn-summarize">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            Generate Summary
+          </button>
+        </div>
+        <div class="ai-panel__output" id="ai-output">
+          <div class="ai-panel__placeholder">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.3"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            <p>Click <strong>"Generate Summary"</strong> to analyze your latest pipeline logs with AI.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Log Modal ===== -->
+    <div class="modal-overlay" id="log-modal" hidden>
+      <div class="modal">
+        <div class="modal__header">
+          <h3 class="modal__title" id="modal-title">Logs</h3>
+          <button class="btn btn--sm btn--ghost" id="btn-modal-close" aria-label="Close modal">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div class="modal__body">
+          <pre class="modal__log" id="modal-log-content">No logs available.</pre>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ========== Footer ========== -->
+  <footer class="footer" id="footer">
+    <div class="footer__inner">
+      <span class="footer__text">CloudForge v1.0.0 — DevOps Pipeline Dashboard</span>
+      <span class="footer__text">Built with Express, Docker, Terraform, Kubernetes & GitHub Actions</span>
+    </div>
+  </footer>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>

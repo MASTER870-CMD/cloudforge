@@ -1,0 +1,47 @@
+# ================================================================
+# CloudForge — Horizontal Pod Autoscaler (HPA)
+# ================================================================
+# WHAT THIS DOES:
+#   - Automatically scales pods between 2 and 5 replicas
+#   - Scales up when average CPU exceeds 70%
+#   - Scales down when CPU drops below threshold
+#
+# INTERVIEW POINT:
+#   "I configured auto-scaling so the app handles traffic spikes
+#    without manual intervention — it scales from 2 to 5 pods
+#    based on CPU utilization."
+# ================================================================
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: cloudforge
+  namespace: cloudforge
+  labels:
+    app: cloudforge
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: cloudforge
+  minReplicas: 2
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 120
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 120

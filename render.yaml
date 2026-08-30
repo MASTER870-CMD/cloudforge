@@ -1,0 +1,35 @@
+# ================================================================
+# CloudForge — Render Blueprint (render.yaml)
+# ================================================================
+# This file tells Render how to build and deploy CloudForge.
+# Drop this in your repo root and Render auto-detects it.
+#
+# WHAT RENDER DOES:
+#   1. Pulls your repo from GitHub
+#   2. Builds the Docker image using your Dockerfile
+#   3. Deploys it with zero-downtime (blue-green)
+#   4. Gives you a public URL like cloudforge-xxxx.onrender.com
+#
+# FREE TIER:
+#   - No credit card required
+#   - Spins down after 15 min of inactivity (cold start ~30s)
+#   - This is normal and interviewers understand it
+# ================================================================
+
+services:
+  - type: web
+    name: cloudforge
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free
+    region: oregon
+    branch: main
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3000"
+      - key: APP_VERSION
+        value: "1.0.0"

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#14B8A6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#3B82F6;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <!-- Cloud shape -->
+  <path d="M60 130 Q30 130 30 105 Q30 85 50 80 Q50 55 75 55 Q90 40 110 45 Q125 35 145 50 Q170 50 170 75 Q185 80 185 100 Q185 125 160 130 Z" fill="url(#grad)" opacity="0.9"/>
+  <!-- Anvil / forge shape -->
+  <rect x="70" y="130" width="60" height="8" rx="2" fill="#111827"/>
+  <rect x="80" y="138" width="40" height="20" rx="2" fill="#1F2937"/>
+  <rect x="75" y="158" width="50" height="6" rx="3" fill="#374151"/>
+  <!-- Spark -->
+  <circle cx="115" cy="95" r="3" fill="#F59E0B" opacity="0.9"/>
+  <circle cx="125" cy="85" r="2" fill="#F59E0B" opacity="0.7"/>
+  <circle cx="108" cy="82" r="2.5" fill="#EF4444" opacity="0.8"/>
+</svg>

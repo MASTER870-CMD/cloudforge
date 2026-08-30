@@ -1,0 +1,104 @@
+# ================================================================
+# CloudForge — Kubernetes Deployment
+# ================================================================
+# WHAT THIS DOES:
+#   - Runs 2 replicas of the CloudForge app
+#   - Uses RollingUpdate strategy with maxUnavailable: 0
+#     (zero-downtime: never removes a pod before a new one is ready)
+#   - Liveness probe: restarts the container if /api/health fails
+#   - Readiness probe: removes from load balancer if not ready
+#   - Resource limits prevent runaway memory/CPU usage
+#
+# SELF-HEALING:
+#   If you `kubectl delete pod <name>`, Kubernetes immediately
+#   spins up a replacement to maintain 2 replicas.
+# ================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudforge
+  namespace: cloudforge
+  labels:
+    app: cloudforge
+    version: "1.0.0"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: cloudforge
+
+  # ---------- Zero-downtime rolling update ----------
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1          # Allow 1 extra pod during update
+      maxUnavailable: 0    # Never remove a pod before new one is ready
+
+  template:
+    metadata:
+      labels:
+        app: cloudforge
+        version: "1.0.0"
+    spec:
+      containers:
+        - name: cloudforge
+          image: cloudforge:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+              protocol: TCP
+
+          # Environment variables
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: PORT
+              value: "3000"
+            - name: DB_PATH
+              value: "/app/data/cloudforge.db"
+            - name: APP_VERSION
+              value: "1.0.0"
+
+          # ---------- Health Probes ----------
+          # Liveness: "Is the container alive?"
+          # If this fails 3 times, K8s kills and restarts the container.
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          # Readiness: "Is the container ready to receive traffic?"
+          # If this fails, K8s removes it from the Service load balancer.
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 2
+
+          # ---------- Resource Limits ----------
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+
+          # Persistent storage for SQLite
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+
+      volumes:
+        - name: data
+          emptyDir: {}
+
+      # Graceful shutdown: give the app 30s to finish requests
+      terminationGracePeriodSeconds: 30
