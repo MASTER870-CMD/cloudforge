@@ -1,3 +1,8 @@
+/*
+ * CloudForge — © 2026 Shashank Gowda NB (github.com/MASTER870-CMD)
+ * Licensed under the CloudForge Non-Commercial License.
+ * Commercial use requires written permission — see LICENSE file.
+ */
 const Database = require('better-sqlite3');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');

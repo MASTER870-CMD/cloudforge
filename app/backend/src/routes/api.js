@@ -1,6 +1,12 @@
+/*
+ * CloudForge — © 2026 Shashank Gowda NB (github.com/MASTER870-CMD)
+ * Licensed under the CloudForge Non-Commercial License.
+ * Commercial use requires written permission — see LICENSE file.
+ */
 const express = require('express');
 const { body, param, validationResult } = require('express-validator');
 const store = require('../data/store');
+const { BUILD_SIGNATURE } = require('./signature');
 
 const router = express.Router();
 
@@ -29,6 +35,7 @@ router.get('/health', (req, res) => {
       uptime: process.uptime(),
       timestamp: new Date().toISOString(),
       version: process.env.APP_VERSION || '1.0.0',
+      build_signature: BUILD_SIGNATURE,
       db: { totalBuilds: stats.totalBuilds },
     });
   } catch (err) {

@@ -1,3 +1,8 @@
+/*
+ * CloudForge — © 2026 Shashank Gowda NB (github.com/MASTER870-CMD)
+ * Licensed under the CloudForge Non-Commercial License.
+ * Commercial use requires written permission — see LICENSE file.
+ */
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const cors = require('cors');

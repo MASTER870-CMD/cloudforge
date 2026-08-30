@@ -244,4 +244,4 @@ cloudforge/
 
 ## 📄 License
 
-MIT — use it however you want.
+Licensed under the CloudForge Non-Commercial License. Commercial use requires written permission.

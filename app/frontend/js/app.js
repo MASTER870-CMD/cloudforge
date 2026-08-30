@@ -1,4 +1,8 @@
 /**
+ * CloudForge — © 2026 Shashank Gowda NB (github.com/MASTER870-CMD)
+ * Licensed under the CloudForge Non-Commercial License.
+ * Commercial use requires written permission — see LICENSE file.
+ *
  * CloudForge Dashboard — Frontend Application Logic
  * Fetches data from the API and renders it into the dashboard UI.
  */
