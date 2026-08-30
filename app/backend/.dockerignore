@@ -1,0 +1,56 @@
+# Dependencies
+node_modules/
+
+# Database files (rebuilt at runtime)
+data/
+
+# Git
+.git/
+.gitignore
+
+# Tests (not needed in production image)
+app/backend/tests/
+app/backend/jest.config.*
+
+# Dev config
+.env
+.env.local
+.env.example
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Terraform (not part of the app image)
+terraform/
+
+# Kubernetes manifests (not part of the app image)
+k8s/
+
+# GitHub Actions (not part of the app image)
+.github/
+
+# Scripts (not part of the app image)
+scripts/
+
+# Docs
+docs/
+README.md
+*.md
+
+# Docker
+Dockerfile
+docker-compose.yaml
+.dockerignore
+
+# Misc
+coverage/
+*.log
+*.tar

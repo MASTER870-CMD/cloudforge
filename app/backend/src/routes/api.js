@@ -283,4 +283,27 @@ router.get(
   }
 );
 
+/**
+ * POST /api/summaries
+ * Save a generated AI summary.
+ */
+router.post(
+  '/summaries',
+  [
+    body('ref_id').isUUID(),
+    body('ref_type').isIn(['build', 'deployment']),
+    body('summary').isString().isLength({ min: 1 }),
+    body('model').optional().isString(),
+  ],
+  validate,
+  (req, res) => {
+    try {
+      const summary = store.createSummary(req.body);
+      res.status(201).json(summary);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  }
+);
+
 module.exports = router;

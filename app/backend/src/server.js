@@ -4,6 +4,8 @@
  * Commercial use requires written permission — see LICENSE file.
  */
 const express = require('express');
+const dotenv = require('dotenv');
+dotenv.config({ path: require('path').join(__dirname, '..', '.env') });
 const path = require('path');
 const morgan = require('morgan');
 const { applySecurityMiddleware } = require('./middleware/security');

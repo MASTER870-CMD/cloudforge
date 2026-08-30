@@ -201,14 +201,14 @@ async function triggerSummarize() {
   // Check if there's already a summary
   const existing = await api(`/summaries/${type}/${latest.id}`);
   if (existing) {
-    output.innerHTML = `<div class="ai-panel__summary">${escapeHtml(existing.summary)}</div>`;
+    output.innerHTML = `<div class="ai-panel__summary">${window.marked ? marked.parse(existing.summary) : escapeHtml(existing.summary)}</div>`;
     return;
   }
 
   // For now, generate a client-side summary from the logs (Stage 10 will add Gemini API)
   const logText = logs.map(l => l.content).join('\n');
   const summary = generateLocalSummary(type, latest, logText);
-  output.innerHTML = `<div class="ai-panel__summary">${escapeHtml(summary)}</div>`;
+  output.innerHTML = `<div class="ai-panel__summary">${window.marked ? marked.parse(summary) : escapeHtml(summary)}</div>`;
 }
 
 /**

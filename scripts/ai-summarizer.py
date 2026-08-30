@@ -35,7 +35,7 @@ from datetime import datetime
 
 API_BASE = os.environ.get("CLOUDFORGE_API_URL", "http://localhost:3000/api")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent"
 
 
 def get_latest(ref_type="deployment"):
@@ -100,7 +100,6 @@ Keep your response concise and professional. Use plain English that a junior dev
                 "contents": [{"parts": [{"text": prompt}]}],
                 "generationConfig": {
                     "temperature": 0.3,
-                    "maxOutputTokens": 500,
                 },
             },
             timeout=30,
@@ -109,8 +108,11 @@ Keep your response concise and professional. Use plain English that a junior dev
         data = resp.json()
         return data["candidates"][0]["content"]["parts"][0]["text"]
     except Exception as e:
-        print(f"Gemini API error: {e}")
-        return generate_local_summary(log_text, ref_type, item_info)
+        error_msg = f"Gemini API error: {e}"
+        if hasattr(e, 'response') and e.response is not None:
+            error_msg += f"\nResponse: {e.response.text}"
+        print(error_msg)
+        return error_msg
 
 
 def generate_local_summary(log_text, ref_type, item_info):
@@ -215,6 +217,10 @@ def main():
     summary = summarize_with_gemini(log_text, args.type, item)
 
     print(summary)
+    print(f"\n{'='*50}\n")
+    
+    # Save the summary to the backend API
+    save_summary(item["id"], args.type, summary)
     print(f"\n{'='*50}\n")
 
 
