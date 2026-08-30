@@ -2,9 +2,8 @@
 node_modules/
 
 # Database
-data/*.db
-data/*.db-wal
-data/*.db-shm
+data/
+app/backend/data/
 
 # Environment
 .env
