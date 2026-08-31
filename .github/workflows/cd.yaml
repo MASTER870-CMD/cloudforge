@@ -129,21 +129,20 @@ jobs:
               \"content\": \"$LOG_CONTENT\"
             }"
 
-      - name: Setup Python
-        if: env.deploy_id != ''
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-
       - name: Generate AI Summary
         if: env.deploy_id != ''
         env:
           CLOUDFORGE_API_SECRET: ${{ secrets.CLOUDFORGE_API_SECRET }}
           CLOUDFORGE_API_URL: https://cloudforge-z44c.onrender.com
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          pip install requests python-dotenv
-          python scripts/ai-summarizer.py --type deployment --id "$deploy_id"
+          curl -s -w "\n%{http_code}" -X POST \
+            "$CLOUDFORGE_API_URL/api/summaries/generate" \
+            -H "Content-Type: application/json" \
+            -H "x-cloudforge-secret: $CLOUDFORGE_API_SECRET" \
+            -d "{
+              \"ref_id\": \"$deploy_id\",
+              \"ref_type\": \"deployment\"
+            }"
 
       - name: Deployment summary
         run: |

@@ -294,6 +294,83 @@ router.get(
 );
 
 /**
+ * POST /api/summaries/generate
+ * Automatically fetch logs and generate a Gemini AI summary.
+ */
+router.post(
+  '/summaries/generate',
+  [
+    body('ref_id').isUUID(),
+    body('ref_type').isIn(['build', 'deployment']),
+  ],
+  webhookAuth,
+  validate,
+  async (req, res) => {
+    try {
+      const { ref_id, ref_type } = req.body;
+      
+      // Fetch logs
+      const logs = store.getLogsByRef(ref_id, ref_type);
+      if (!logs || logs.length === 0) {
+        return res.status(400).json({ error: 'No logs found for this reference.' });
+      }
+
+      // Format logs
+      const logText = logs.map(l => l.content).join('\n');
+      
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        return res.status(400).json({ error: 'GEMINI_API_KEY is not configured on the server.' });
+      }
+
+      const prompt = `Analyze these ${ref_type} logs and provide a brief, easy-to-read summary.
+Focus on:
+1. Status (Success/Failure)
+2. Key events or actions taken
+3. Any errors, warnings, or anomalies
+
+Logs:
+${logText}
+
+Keep the summary concise and format it with clear markdown headings.`;
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }]
+        })
+      });
+
+      if (!response.ok) {
+        const errBody = await response.text();
+        throw new Error(`Gemini API error: ${response.status} - ${errBody}`);
+      }
+
+      const data = await response.json();
+      const summaryText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+      if (!summaryText) {
+        throw new Error('Failed to extract summary from Gemini response');
+      }
+
+      // Save summary
+      const summary = store.createSummary({
+        ref_id,
+        ref_type,
+        summary: summaryText,
+        model: 'gemini-1.5-flash'
+      });
+
+      res.status(201).json(summary);
+    } catch (err) {
+      console.error('[Generate Summary Error]', err);
+      res.status(500).json({ error: err.message });
+    }
+  }
+);
+
+/**
  * POST /api/summaries
  * Save a generated AI summary.
  */
