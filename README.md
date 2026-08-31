@@ -245,3 +245,5 @@ cloudforge/
 ## 📄 License
 
 Licensed under the CloudForge Non-Commercial License. Commercial use requires written permission.
+
+<!-- Pipeline test: 2026-08-31 -->
