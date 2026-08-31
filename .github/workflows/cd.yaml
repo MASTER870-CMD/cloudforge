@@ -41,12 +41,17 @@ jobs:
         env:
           RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
         run: |
-          if [ -n "$RENDER_DEPLOY_HOOK" ]; then
-            echo "Triggering Render deploy..."
-            curl -s "$RENDER_DEPLOY_HOOK" || echo "Deploy hook not configured yet"
-          else
-            echo "RENDER_DEPLOY_HOOK not set — Render will auto-deploy from GitHub"
-          fi
+          {
+            echo "Starting deployment to Render..."
+            if [ -n "$RENDER_DEPLOY_HOOK" ]; then
+              echo "Triggering Render deploy hook..."
+              curl -s "$RENDER_DEPLOY_HOOK" || echo "Deploy hook not configured yet"
+            else
+              echo "RENDER_DEPLOY_HOOK not set — Render will auto-deploy from GitHub"
+            fi
+            echo "Deployment step completed."
+          } > deploy.log 2>&1
+          cat deploy.log
 
       - name: Record deployment via CloudForge API
         env:
@@ -99,9 +104,46 @@ jobs:
 
           if [ "$DEPLOY_HTTP" -ge 200 ] && [ "$DEPLOY_HTTP" -lt 300 ]; then
             echo "✅ Deployment recorded successfully"
+            # Extract deployment ID
+            DEPLOY_ID=$(echo "$DEPLOY_BODY" | python3 -c "import sys,json; print(json.load(sys.stdin).get('id', ''))" 2>/dev/null || echo "")
+            echo "deploy_id=$DEPLOY_ID" >> $GITHUB_ENV
           else
             echo "⚠️ Failed to record deployment (non-critical)"
           fi
+
+      - name: Upload Logs to API
+        if: env.deploy_id != ''
+        env:
+          CLOUDFORGE_API_SECRET: ${{ secrets.CLOUDFORGE_API_SECRET }}
+          CLOUDFORGE_API_URL: https://cloudforge-z44c.onrender.com
+        run: |
+          LOG_CONTENT=$(cat deploy.log | python3 -c 'import sys, json; print(json.dumps(sys.stdin.read())[1:-1])')
+          curl -s -w "\n%{http_code}" -X POST \
+            "$CLOUDFORGE_API_URL/api/logs" \
+            -H "Content-Type: application/json" \
+            -H "x-cloudforge-secret: $CLOUDFORGE_API_SECRET" \
+            -d "{
+              \"ref_id\": \"$deploy_id\",
+              \"ref_type\": \"deployment\",
+              \"level\": \"info\",
+              \"content\": \"$LOG_CONTENT\"
+            }"
+
+      - name: Setup Python
+        if: env.deploy_id != ''
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Generate AI Summary
+        if: env.deploy_id != ''
+        env:
+          CLOUDFORGE_API_SECRET: ${{ secrets.CLOUDFORGE_API_SECRET }}
+          CLOUDFORGE_API_URL: https://cloudforge-z44c.onrender.com
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          pip install requests python-dotenv
+          python scripts/ai-summarizer.py --type deployment --id "$deploy_id"
 
       - name: Deployment summary
         run: |
