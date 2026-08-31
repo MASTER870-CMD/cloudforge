@@ -13,6 +13,7 @@ const apiRouter = require('./routes/api');
 const store = require('./data/store');
 const { BUILD_SIGNATURE } = require('./signature');
 const app = express();
+app.set('trust proxy', 1); // Trust Render's reverse proxy for correct IP rate limiting
 const PORT = process.env.PORT || 3000;
 
 // ---------- Initialize database ----------

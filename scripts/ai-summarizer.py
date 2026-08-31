@@ -146,15 +146,20 @@ Warnings: {len(warn_lines)}
 
 
 def save_summary(ref_id, ref_type, summary_text):
-    """Save the summary back to the CloudForge API."""
+    print(f"Saving summary to {API_BASE}/summaries...")
+    secret = os.environ.get("CLOUDFORGE_API_SECRET", "")
     try:
         resp = requests.post(
             f"{API_BASE}/summaries",
+            headers={
+                "Content-Type": "application/json",
+                "x-cloudforge-secret": secret
+            },
             json={
                 "ref_id": ref_id,
                 "ref_type": ref_type,
                 "summary": summary_text,
-                "model": "gemini" if GEMINI_API_KEY else "local",
+                "model": "gemini-3.6-flash",
             },
             timeout=10,
         )
