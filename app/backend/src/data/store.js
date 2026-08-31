@@ -3,198 +3,251 @@
  * Licensed under the CloudForge Non-Commercial License.
  * Commercial use requires written permission — see LICENSE file.
  */
-const Database = require('better-sqlite3');
-const path = require('path');
+const { Pool } = require('pg');
 const { v4: uuidv4 } = require('uuid');
 
-const DB_PATH = process.env.DB_PATH || path.join(__dirname, '..', '..', 'data', 'cloudforge.db');
+const DATABASE_URL = process.env.DATABASE_URL;
 
-let db;
+let pool;
 
 /**
- * Initialize the SQLite database and create tables if they don't exist.
- * Uses WAL mode for better concurrent read performance.
+ * Initialize the PostgreSQL database and create tables if they don't exist.
  */
-function initDB() {
-  const dir = path.dirname(DB_PATH);
-  const fs = require('fs');
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
+async function initDB() {
+  if (!DATABASE_URL) {
+    throw new Error('DATABASE_URL environment variable is required.');
   }
 
-  db = new Database(DB_PATH);
-  db.pragma('journal_mode = WAL');
-  db.pragma('foreign_keys = ON');
+  pool = new Pool({
+    connectionString: DATABASE_URL,
+    // Add SSL if needed for production/render connections
+    ssl: DATABASE_URL.includes('localhost') ? false : { rejectUnauthorized: false }
+  });
 
-  db.exec(`
+  const createTablesQuery = `
     CREATE TABLE IF NOT EXISTS builds (
-      id TEXT PRIMARY KEY,
-      commit_sha TEXT NOT NULL,
-      branch TEXT DEFAULT 'main',
-      status TEXT NOT NULL CHECK(status IN ('pending', 'running', 'passed', 'failed')),
+      id UUID PRIMARY KEY,
+      commit_sha VARCHAR(255) NOT NULL,
+      branch VARCHAR(255) DEFAULT 'main',
+      status VARCHAR(50) NOT NULL CHECK(status IN ('pending', 'running', 'passed', 'failed')),
       duration_ms INTEGER DEFAULT 0,
-      triggered_by TEXT DEFAULT 'push',
+      triggered_by VARCHAR(50) DEFAULT 'push',
       error_message TEXT,
-      created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now'))
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 
     CREATE TABLE IF NOT EXISTS deployments (
-      id TEXT PRIMARY KEY,
-      build_id TEXT REFERENCES builds(id),
-      environment TEXT NOT NULL CHECK(environment IN ('local', 'minikube', 'render', 'production')),
-      version TEXT NOT NULL,
-      status TEXT NOT NULL CHECK(status IN ('pending', 'deploying', 'deployed', 'failed', 'rolled_back')),
+      id UUID PRIMARY KEY,
+      build_id UUID REFERENCES builds(id) ON DELETE CASCADE,
+      environment VARCHAR(50) NOT NULL CHECK(environment IN ('local', 'minikube', 'render', 'production')),
+      version VARCHAR(255) NOT NULL,
+      status VARCHAR(50) NOT NULL CHECK(status IN ('pending', 'deploying', 'deployed', 'failed', 'rolled_back')),
       url TEXT,
       duration_ms INTEGER DEFAULT 0,
       error_message TEXT,
-      created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now'))
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 
     CREATE TABLE IF NOT EXISTS logs (
-      id TEXT PRIMARY KEY,
-      ref_id TEXT NOT NULL,
-      ref_type TEXT NOT NULL CHECK(ref_type IN ('build', 'deployment')),
+      id UUID PRIMARY KEY,
+      ref_id UUID NOT NULL,
+      ref_type VARCHAR(50) NOT NULL CHECK(ref_type IN ('build', 'deployment')),
       content TEXT NOT NULL,
-      level TEXT DEFAULT 'info' CHECK(level IN ('info', 'warn', 'error', 'debug')),
-      created_at TEXT DEFAULT (datetime('now'))
+      level VARCHAR(50) DEFAULT 'info' CHECK(level IN ('info', 'warn', 'error', 'debug')),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 
     CREATE TABLE IF NOT EXISTS summaries (
-      id TEXT PRIMARY KEY,
-      ref_id TEXT NOT NULL,
-      ref_type TEXT NOT NULL CHECK(ref_type IN ('build', 'deployment')),
+      id UUID PRIMARY KEY,
+      ref_id UUID NOT NULL,
+      ref_type VARCHAR(50) NOT NULL CHECK(ref_type IN ('build', 'deployment')),
       summary TEXT NOT NULL,
-      model TEXT DEFAULT 'gemini',
-      created_at TEXT DEFAULT (datetime('now'))
+      model VARCHAR(100) DEFAULT 'gemini',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
-  `);
+  `;
 
-  return db;
+  await pool.query(createTablesQuery);
+  return pool;
 }
 
 // ---------- CRUD Operations ----------
 
-function getAllBuilds(limit = 20) {
-  return db.prepare('SELECT * FROM builds ORDER BY created_at DESC LIMIT ?').all(limit);
+async function getAllBuilds(limit = 20) {
+  const result = await pool.query('SELECT * FROM builds ORDER BY created_at DESC LIMIT $1', [limit]);
+  return result.rows;
 }
 
-function getBuildById(id) {
-  return db.prepare('SELECT * FROM builds WHERE id = ?').get(id);
+async function getBuildById(id) {
+  const result = await pool.query('SELECT * FROM builds WHERE id = $1', [id]);
+  return result.rows[0];
 }
 
-function getBuildByCommitSha(sha) {
-  return db.prepare('SELECT * FROM builds WHERE commit_sha = ? ORDER BY created_at DESC LIMIT 1').get(sha);
+async function getBuildByCommitSha(sha) {
+  const result = await pool.query('SELECT * FROM builds WHERE commit_sha = $1 ORDER BY created_at DESC LIMIT 1', [sha]);
+  return result.rows[0];
 }
 
-function createBuild(data) {
+async function createBuild(data) {
   const id = uuidv4();
-  const stmt = db.prepare(`
+  await pool.query(`
     INSERT INTO builds (id, commit_sha, branch, status, duration_ms, triggered_by)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `);
-  stmt.run(id, data.commit_sha, data.branch || 'main', data.status || 'pending', data.duration_ms || 0, data.triggered_by || 'push');
+    VALUES ($1, $2, $3, $4, $5, $6)
+  `, [
+    id, 
+    data.commit_sha, 
+    data.branch || 'main', 
+    data.status || 'pending', 
+    data.duration_ms || 0, 
+    data.triggered_by || 'push'
+  ]);
   return getBuildById(id);
 }
 
-function updateBuild(id, data) {
+async function updateBuild(id, data) {
   const fields = [];
   const values = [];
+  let idx = 1;
   for (const [key, value] of Object.entries(data)) {
     if (['status', 'duration_ms', 'error_message'].includes(key)) {
-      fields.push(`${key} = ?`);
+      fields.push(`${key} = $${idx++}`);
       values.push(value);
     }
   }
-  fields.push("updated_at = datetime('now')");
+  
+  if (fields.length === 0) return getBuildById(id);
+
+  fields.push(`updated_at = CURRENT_TIMESTAMP`);
   values.push(id);
-  db.prepare(`UPDATE builds SET ${fields.join(', ')} WHERE id = ?`).run(...values);
+  await pool.query(`UPDATE builds SET ${fields.join(', ')} WHERE id = $${idx}`, values);
   return getBuildById(id);
 }
 
-function getAllDeployments(limit = 20) {
-  return db.prepare(`
+async function getAllDeployments(limit = 20) {
+  const result = await pool.query(`
     SELECT d.*, b.commit_sha, b.branch
     FROM deployments d
     LEFT JOIN builds b ON d.build_id = b.id
-    ORDER BY d.created_at DESC LIMIT ?
-  `).all(limit);
+    ORDER BY d.created_at DESC LIMIT $1
+  `, [limit]);
+  return result.rows;
 }
 
-function getDeploymentById(id) {
-  return db.prepare(`
+async function getDeploymentById(id) {
+  const result = await pool.query(`
     SELECT d.*, b.commit_sha, b.branch
     FROM deployments d
     LEFT JOIN builds b ON d.build_id = b.id
-    WHERE d.id = ?
-  `).get(id);
+    WHERE d.id = $1
+  `, [id]);
+  return result.rows[0];
 }
 
-function createDeployment(data) {
+async function createDeployment(data) {
   const id = uuidv4();
-  const stmt = db.prepare(`
+  await pool.query(`
     INSERT INTO deployments (id, build_id, environment, version, status, url, duration_ms)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `);
-  stmt.run(id, data.build_id, data.environment || 'local', data.version, data.status || 'pending', data.url || null, data.duration_ms || 0);
+    VALUES ($1, $2, $3, $4, $5, $6, $7)
+  `, [
+    id, 
+    data.build_id, 
+    data.environment || 'local', 
+    data.version, 
+    data.status || 'pending', 
+    data.url || null, 
+    data.duration_ms || 0
+  ]);
   return getDeploymentById(id);
 }
 
-function updateDeployment(id, data) {
+async function updateDeployment(id, data) {
   const fields = [];
   const values = [];
+  let idx = 1;
   for (const [key, value] of Object.entries(data)) {
     if (['status', 'url', 'duration_ms', 'error_message'].includes(key)) {
-      fields.push(`${key} = ?`);
+      fields.push(`${key} = $${idx++}`);
       values.push(value);
     }
   }
-  fields.push("updated_at = datetime('now')");
+
+  if (fields.length === 0) return getDeploymentById(id);
+
+  fields.push(`updated_at = CURRENT_TIMESTAMP`);
   values.push(id);
-  db.prepare(`UPDATE deployments SET ${fields.join(', ')} WHERE id = ?`).run(...values);
+  await pool.query(`UPDATE deployments SET ${fields.join(', ')} WHERE id = $${idx}`, values);
   return getDeploymentById(id);
 }
 
-function getLogsByRef(refId, refType) {
-  return db.prepare('SELECT * FROM logs WHERE ref_id = ? AND ref_type = ? ORDER BY created_at ASC').all(refId, refType);
+async function getLogsByRef(refId, refType) {
+  const result = await pool.query('SELECT * FROM logs WHERE ref_id = $1 AND ref_type = $2 ORDER BY created_at ASC', [refId, refType]);
+  return result.rows;
 }
 
-function createLog(data) {
+async function createLog(data) {
   const id = uuidv4();
-  db.prepare(`
+  await pool.query(`
     INSERT INTO logs (id, ref_id, ref_type, content, level)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(id, data.ref_id, data.ref_type, data.content, data.level || 'info');
-  return db.prepare('SELECT * FROM logs WHERE id = ?').get(id);
+    VALUES ($1, $2, $3, $4, $5)
+  `, [
+    id, 
+    data.ref_id, 
+    data.ref_type, 
+    data.content, 
+    data.level || 'info'
+  ]);
+  const result = await pool.query('SELECT * FROM logs WHERE id = $1', [id]);
+  return result.rows[0];
 }
 
-function getSummaryByRef(refId, refType) {
-  return db.prepare('SELECT * FROM summaries WHERE ref_id = ? AND ref_type = ? ORDER BY created_at DESC LIMIT 1').get(refId, refType);
+async function getSummaryByRef(refId, refType) {
+  const result = await pool.query('SELECT * FROM summaries WHERE ref_id = $1 AND ref_type = $2 ORDER BY created_at DESC LIMIT 1', [refId, refType]);
+  return result.rows[0];
 }
 
-function createSummary(data) {
+async function createSummary(data) {
   const id = uuidv4();
-  db.prepare(`
+  await pool.query(`
     INSERT INTO summaries (id, ref_id, ref_type, summary, model)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(id, data.ref_id, data.ref_type, data.summary, data.model || 'gemini');
-  return db.prepare('SELECT * FROM summaries WHERE id = ?').get(id);
+    VALUES ($1, $2, $3, $4, $5)
+  `, [
+    id, 
+    data.ref_id, 
+    data.ref_type, 
+    data.summary, 
+    data.model || 'gemini'
+  ]);
+  const result = await pool.query('SELECT * FROM summaries WHERE id = $1', [id]);
+  return result.rows[0];
 }
 
-function getStats() {
-  const totalBuilds = db.prepare('SELECT COUNT(*) as count FROM builds').get().count;
-  const passedBuilds = db.prepare("SELECT COUNT(*) as count FROM builds WHERE status = 'passed'").get().count;
-  const failedBuilds = db.prepare("SELECT COUNT(*) as count FROM builds WHERE status = 'failed'").get().count;
-  const totalDeployments = db.prepare('SELECT COUNT(*) as count FROM deployments').get().count;
-  const successfulDeploys = db.prepare("SELECT COUNT(*) as count FROM deployments WHERE status = 'deployed'").get().count;
-  const avgBuildTime = db.prepare("SELECT AVG(duration_ms) as avg FROM builds WHERE status = 'passed'").get().avg || 0;
-  const lastBuild = db.prepare('SELECT * FROM builds ORDER BY created_at DESC LIMIT 1').get();
-  const lastDeployment = db.prepare(`
+async function getStats() {
+  const totalBuildsResult = await pool.query('SELECT COUNT(*) as count FROM builds');
+  const passedBuildsResult = await pool.query("SELECT COUNT(*) as count FROM builds WHERE status = 'passed'");
+  const failedBuildsResult = await pool.query("SELECT COUNT(*) as count FROM builds WHERE status = 'failed'");
+  
+  const totalDeploymentsResult = await pool.query('SELECT COUNT(*) as count FROM deployments');
+  const successfulDeploysResult = await pool.query("SELECT COUNT(*) as count FROM deployments WHERE status = 'deployed'");
+  
+  const avgBuildTimeResult = await pool.query("SELECT AVG(duration_ms) as avg FROM builds WHERE status = 'passed'");
+  
+  const lastBuildResult = await pool.query('SELECT * FROM builds ORDER BY created_at DESC LIMIT 1');
+  const lastDeploymentResult = await pool.query(`
     SELECT d.*, b.commit_sha FROM deployments d
     LEFT JOIN builds b ON d.build_id = b.id
     ORDER BY d.created_at DESC LIMIT 1
-  `).get();
+  `);
+
+  const totalBuilds = parseInt(totalBuildsResult.rows[0].count, 10);
+  const passedBuilds = parseInt(passedBuildsResult.rows[0].count, 10);
+  const failedBuilds = parseInt(failedBuildsResult.rows[0].count, 10);
+  
+  const totalDeployments = parseInt(totalDeploymentsResult.rows[0].count, 10);
+  const successfulDeploys = parseInt(successfulDeploysResult.rows[0].count, 10);
+  
+  const avgBuildTime = parseFloat(avgBuildTimeResult.rows[0].avg) || 0;
 
   return {
     totalBuilds,
@@ -204,13 +257,13 @@ function getStats() {
     totalDeployments,
     successfulDeploys,
     avgBuildTime: Math.round(avgBuildTime),
-    lastBuild,
-    lastDeployment,
+    lastBuild: lastBuildResult.rows[0] || null,
+    lastDeployment: lastDeploymentResult.rows[0] || null,
   };
 }
 
-function closeDB() {
-  if (db) db.close();
+async function closeDB() {
+  if (pool) await pool.end();
 }
 
 module.exports = {

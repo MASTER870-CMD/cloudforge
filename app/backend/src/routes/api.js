@@ -31,9 +31,9 @@ function validate(req, res, next) {
  * Used by Kubernetes liveness/readiness probes.
  * Returns 200 if the server is running and DB is accessible.
  */
-router.get('/health', (req, res) => {
+router.get('/health', async (req, res) => {
   try {
-    const stats = store.getStats();
+    const stats = await store.getStats();
     res.json({
       status: 'healthy',
       uptime: process.uptime(),
@@ -53,9 +53,9 @@ router.get('/health', (req, res) => {
  * GET /api/stats
  * Returns aggregate dashboard statistics.
  */
-router.get('/stats', (req, res) => {
+router.get('/stats', async (req, res) => {
   try {
-    const stats = store.getStats();
+    const stats = await store.getStats();
     res.json(stats);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -69,15 +69,15 @@ router.get('/stats', (req, res) => {
  * Returns all builds, most recent first.
  * Supports optional ?commit_sha=xxx to find a build by commit.
  */
-router.get('/builds', (req, res) => {
+router.get('/builds', async (req, res) => {
   try {
     if (req.query.commit_sha) {
-      const build = store.getBuildByCommitSha(req.query.commit_sha);
+      const build = await store.getBuildByCommitSha(req.query.commit_sha);
       if (!build) return res.status(404).json({ error: 'Build not found' });
       return res.json(build);
     }
     const limit = Math.min(parseInt(req.query.limit) || 20, 100);
-    const builds = store.getAllBuilds(limit);
+    const builds = await store.getAllBuilds(limit);
     res.json(builds);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -88,9 +88,9 @@ router.get('/builds', (req, res) => {
  * GET /api/builds/:id
  * Returns a single build by ID.
  */
-router.get('/builds/:id', param('id').isUUID(), validate, (req, res) => {
+router.get('/builds/:id', param('id').isUUID(), validate, async (req, res) => {
   try {
-    const build = store.getBuildById(req.params.id);
+    const build = await store.getBuildById(req.params.id);
     if (!build) return res.status(404).json({ error: 'Build not found' });
     res.json(build);
   } catch (err) {
@@ -111,9 +111,9 @@ router.post(
     body('triggered_by').optional().isIn(['push', 'pull_request', 'manual']),
   ],
   validate,
-  (req, res) => {
+  async (req, res) => {
     try {
-      const build = store.createBuild(req.body);
+      const build = await store.createBuild(req.body);
       res.status(201).json(build);
     } catch (err) {
       res.status(500).json({ error: err.message });
@@ -134,9 +134,9 @@ router.patch(
     body('error_message').optional().isString(),
   ],
   validate,
-  (req, res) => {
+  async (req, res) => {
     try {
-      const build = store.updateBuild(req.params.id, req.body);
+      const build = await store.updateBuild(req.params.id, req.body);
       if (!build) return res.status(404).json({ error: 'Build not found' });
       res.json(build);
     } catch (err) {
@@ -151,10 +151,10 @@ router.patch(
  * GET /api/deployments
  * Returns all deployments, most recent first.
  */
-router.get('/deployments', (req, res) => {
+router.get('/deployments', async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit) || 20, 100);
-    const deployments = store.getAllDeployments(limit);
+    const deployments = await store.getAllDeployments(limit);
     res.json(deployments);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -165,9 +165,9 @@ router.get('/deployments', (req, res) => {
  * GET /api/deployments/:id
  * Returns a single deployment by ID.
  */
-router.get('/deployments/:id', param('id').isUUID(), validate, (req, res) => {
+router.get('/deployments/:id', param('id').isUUID(), validate, async (req, res) => {
   try {
-    const deployment = store.getDeploymentById(req.params.id);
+    const deployment = await store.getDeploymentById(req.params.id);
     if (!deployment) return res.status(404).json({ error: 'Deployment not found' });
     res.json(deployment);
   } catch (err) {
@@ -189,9 +189,9 @@ router.post(
     body('url').optional().isURL(),
   ],
   validate,
-  (req, res) => {
+  async (req, res) => {
     try {
-      const deployment = store.createDeployment(req.body);
+      const deployment = await store.createDeployment(req.body);
       res.status(201).json(deployment);
     } catch (err) {
       res.status(500).json({ error: err.message });
@@ -212,9 +212,9 @@ router.patch(
     body('error_message').optional().isString(),
   ],
   validate,
-  (req, res) => {
+  async (req, res) => {
     try {
-      const deployment = store.updateDeployment(req.params.id, req.body);
+      const deployment = await store.updateDeployment(req.params.id, req.body);
       if (!deployment) return res.status(404).json({ error: 'Deployment not found' });
       res.json(deployment);
     } catch (err) {
@@ -236,9 +236,9 @@ router.get(
     param('refId').isUUID(),
   ],
   validate,
-  (req, res) => {
+  async (req, res) => {
     try {
-      const logs = store.getLogsByRef(req.params.refId, req.params.refType);
+      const logs = await store.getLogsByRef(req.params.refId, req.params.refType);
       res.json(logs);
     } catch (err) {
       res.status(500).json({ error: err.message });
@@ -259,9 +259,9 @@ router.post(
     body('level').optional().isIn(['info', 'warn', 'error', 'debug']),
   ],
   validate,
-  (req, res) => {
+  async (req, res) => {
     try {
-      const log = store.createLog(req.body);
+      const log = await store.createLog(req.body);
       res.status(201).json(log);
     } catch (err) {
       res.status(500).json({ error: err.message });
@@ -282,9 +282,9 @@ router.get(
     param('refId').isUUID(),
   ],
   validate,
-  (req, res) => {
+  async (req, res) => {
     try {
-      const summary = store.getSummaryByRef(req.params.refId, req.params.refType);
+      const summary = await store.getSummaryByRef(req.params.refId, req.params.refType);
       if (!summary) return res.status(404).json({ error: 'No summary found' });
       res.json(summary);
     } catch (err) {
@@ -310,7 +310,7 @@ router.post(
       const { ref_id, ref_type } = req.body;
       
       // Fetch logs
-      const logs = store.getLogsByRef(ref_id, ref_type);
+      const logs = await store.getLogsByRef(ref_id, ref_type);
       if (!logs || logs.length === 0) {
         return res.status(400).json({ error: 'No logs found for this reference.' });
       }
@@ -355,7 +355,7 @@ Keep the summary concise and format it with clear markdown headings.`;
       }
 
       // Save summary
-      const summary = store.createSummary({
+      const summary = await store.createSummary({
         ref_id,
         ref_type,
         summary: summaryText,
@@ -383,9 +383,9 @@ router.post(
     body('model').optional().isString(),
   ],
   validate,
-  (req, res) => {
+  async (req, res) => {
     try {
-      const summary = store.createSummary(req.body);
+      const summary = await store.createSummary(req.body);
       res.status(201).json(summary);
     } catch (err) {
       res.status(500).json({ error: err.message });
