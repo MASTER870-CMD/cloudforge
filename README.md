@@ -48,7 +48,7 @@ graph TB
     
     POD1 -->|serves| API[📊 Express API]
     POD2 -->|serves| API
-    API -->|stores| DB[(SQLite)]
+    API -->|stores| DB[(PostgreSQL)]
     API -->|serves| UI[🖥️ Dashboard UI]
     
     API -->|logs| AI[🤖 Gemini AI Summarizer]
@@ -177,7 +177,7 @@ cloudforge/
 │   │   │   ├── server.js       # Entry point
 │   │   │   ├── routes/api.js   # REST endpoints
 │   │   │   ├── middleware/     # Helmet, rate-limit, CORS
-│   │   │   └── data/store.js  # SQLite database
+│   │   │   └── data/store.js  # PostgreSQL database
 │   │   └── tests/              # Jest test suite
 │   └── frontend/         # Static dashboard UI
 │       ├── index.html
@@ -238,17 +238,10 @@ cloudforge/
 
 > **Q: How does the AI part work?**
 >
-> "The AI log summarizer reads raw deployment logs from the SQLite database, formats them into a prompt, and sends them to Google's Gemini API. The API returns a structured summary — status, key events, duration, issues found, and recommendations. If the API key isn't configured, it falls back to a local pattern-matching analysis."
+> "The AI log summarizer reads raw deployment logs from the PostgreSQL database, formats them into a prompt, and sends them to Google's Gemini API. The API returns a structured summary — status, key events, duration, issues found, and recommendations. If the API key isn't configured, it falls back to a local pattern-matching analysis."
 
 ---
 
 ## 📄 License
 
 Licensed under the CloudForge Non-Commercial License. Commercial use requires written permission.
-
-<!-- Pipeline test: Final Automated Summarizer Test 2 -->
-T e s t   P u s h   1 
- 
- T e s t   P u s h   2 
- 
- 
