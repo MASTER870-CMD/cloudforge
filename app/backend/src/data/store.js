@@ -71,86 +71,7 @@ function initDB() {
     );
   `);
 
-  // Seed some sample data if the builds table is empty
-  const count = db.prepare('SELECT COUNT(*) as count FROM builds').get();
-  if (count.count === 0) {
-    seedData();
-  }
-
   return db;
-}
-
-/**
- * Seed initial sample data so the dashboard isn't empty on first load.
- */
-function seedData() {
-  const builds = [
-    { id: uuidv4(), commit_sha: 'a1b2c3d', branch: 'main', status: 'passed', duration_ms: 8230, triggered_by: 'push', created_at: '2026-08-30 10:00:00' },
-    { id: uuidv4(), commit_sha: 'e4f5g6h', branch: 'main', status: 'passed', duration_ms: 7450, triggered_by: 'push', created_at: '2026-08-30 11:30:00' },
-    { id: uuidv4(), commit_sha: 'i7j8k9l', branch: 'feature/dashboard', status: 'failed', duration_ms: 3200, triggered_by: 'pull_request', error_message: 'Test suite failed: 2 assertions', created_at: '2026-08-30 13:00:00' },
-    { id: uuidv4(), commit_sha: 'm0n1o2p', branch: 'main', status: 'passed', duration_ms: 9100, triggered_by: 'push', created_at: '2026-08-30 14:15:00' },
-    { id: uuidv4(), commit_sha: 'q3r4s5t', branch: 'main', status: 'passed', duration_ms: 6800, triggered_by: 'push', created_at: '2026-08-30 15:45:00' },
-  ];
-
-  const insertBuild = db.prepare(`
-    INSERT INTO builds (id, commit_sha, branch, status, duration_ms, triggered_by, created_at, updated_at)
-    VALUES (@id, @commit_sha, @branch, @status, @duration_ms, @triggered_by, @created_at, @created_at)
-  `);
-
-  const insertDeployment = db.prepare(`
-    INSERT INTO deployments (id, build_id, environment, version, status, url, duration_ms, created_at, updated_at)
-    VALUES (@id, @build_id, @environment, @version, @status, @url, @duration_ms, @created_at, @created_at)
-  `);
-
-  const insertLog = db.prepare(`
-    INSERT INTO logs (id, ref_id, ref_type, content, level, created_at)
-    VALUES (@id, @ref_id, @ref_type, @content, @level, @created_at)
-  `);
-
-  const transaction = db.transaction(() => {
-    for (const build of builds) {
-      insertBuild.run(build);
-
-      // Create a deployment for passed builds
-      if (build.status === 'passed') {
-        const deployId = uuidv4();
-        insertDeployment.run({
-          id: deployId,
-          build_id: build.id,
-          environment: 'local',
-          version: `1.0.${builds.indexOf(build)}`,
-          status: 'deployed',
-          url: 'http://localhost:3000',
-          duration_ms: Math.floor(Math.random() * 5000) + 2000,
-          created_at: build.created_at,
-        });
-
-        // Add deployment log
-        insertLog.run({
-          id: uuidv4(),
-          ref_id: deployId,
-          ref_type: 'deployment',
-          content: `Deployment v1.0.${builds.indexOf(build)} completed successfully.\nImage pulled in 1.2s\nHealth check passed on /api/health\nAll 2 replicas running.`,
-          level: 'info',
-          created_at: build.created_at,
-        });
-      }
-
-      // Add build log
-      insertLog.run({
-        id: uuidv4(),
-        ref_id: build.id,
-        ref_type: 'build',
-        content: build.status === 'passed'
-          ? `Build ${build.commit_sha} started.\nnpm install completed (${Math.floor(build.duration_ms / 2)}ms)\nAll tests passed (12/12).\nDocker image built: cloudforge:${build.commit_sha}\nImage pushed to registry.`
-          : `Build ${build.commit_sha} started.\nnpm install completed.\nTest suite FAILED:\n  ✗ GET /api/health should return 200\n  ✗ GET /api/builds should return array\n${build.error_message}`,
-        level: build.status === 'passed' ? 'info' : 'error',
-        created_at: build.created_at,
-      });
-    }
-  });
-
-  transaction();
 }
 
 // ---------- CRUD Operations ----------
@@ -161,6 +82,10 @@ function getAllBuilds(limit = 20) {
 
 function getBuildById(id) {
   return db.prepare('SELECT * FROM builds WHERE id = ?').get(id);
+}
+
+function getBuildByCommitSha(sha) {
+  return db.prepare('SELECT * FROM builds WHERE commit_sha = ? ORDER BY created_at DESC LIMIT 1').get(sha);
 }
 
 function createBuild(data) {
@@ -293,6 +218,7 @@ module.exports = {
   closeDB,
   getAllBuilds,
   getBuildById,
+  getBuildByCommitSha,
   createBuild,
   updateBuild,
   getAllDeployments,

@@ -7,8 +7,12 @@ const express = require('express');
 const { body, param, validationResult } = require('express-validator');
 const store = require('../data/store');
 const { BUILD_SIGNATURE } = require('../signature');
+const { webhookAuth } = require('../middleware/webhook-auth');
 
 const router = express.Router();
+
+// Apply webhook auth — protects POST/PATCH/DELETE, allows GET
+router.use(webhookAuth);
 
 // ---------- Validation helper ----------
 
@@ -63,9 +67,15 @@ router.get('/stats', (req, res) => {
 /**
  * GET /api/builds
  * Returns all builds, most recent first.
+ * Supports optional ?commit_sha=xxx to find a build by commit.
  */
 router.get('/builds', (req, res) => {
   try {
+    if (req.query.commit_sha) {
+      const build = store.getBuildByCommitSha(req.query.commit_sha);
+      if (!build) return res.status(404).json({ error: 'Build not found' });
+      return res.json(build);
+    }
     const limit = Math.min(parseInt(req.query.limit) || 20, 100);
     const builds = store.getAllBuilds(limit);
     res.json(builds);

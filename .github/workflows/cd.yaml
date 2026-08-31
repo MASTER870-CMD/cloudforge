@@ -6,13 +6,14 @@
 # WHAT IT DOES:
 #   1. Pulls the newly built Docker image
 #   2. Deploys to Render (free tier) via deploy hook
-#   3. Records the deployment in the CloudForge API
+#   3. Records the deployment in the CloudForge API with real data
 #
 # INTERVIEW POINT:
 #   "After CI passes, the CD pipeline automatically deploys
 #    the new version to production — fully automated, no manual
-#    steps. Render handles zero-downtime deploys with blue-green
-#    deployment under the hood."
+#    steps. It also records the deployment in the live dashboard
+#    so I can track every deploy with its commit, environment,
+#    and status."
 # ================================================================
 
 name: CD — Deploy
@@ -47,14 +48,60 @@ jobs:
             echo "RENDER_DEPLOY_HOOK not set — Render will auto-deploy from GitHub"
           fi
 
-      - name: Record deployment
+      - name: Record deployment via CloudForge API
+        env:
+          CLOUDFORGE_API_SECRET: ${{ secrets.CLOUDFORGE_API_SECRET }}
+          CLOUDFORGE_API_URL: https://cloudforge-z44c.onrender.com
         run: |
-          COMMIT_SHA=$(git rev-parse --short HEAD)
-          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          echo "Deployment recorded:"
-          echo "  Commit: $COMMIT_SHA"
-          echo "  Time: $TIMESTAMP"
-          echo "  Status: deployed"
+          COMMIT_SHA=$(echo "${{ github.event.workflow_run.head_sha }}" | cut -c1-7)
+
+          echo "Looking up build for commit $COMMIT_SHA..."
+
+          # Look up the build record by commit SHA
+          BUILD_RESPONSE=$(curl -s -w "\n%{http_code}" \
+            "$CLOUDFORGE_API_URL/api/builds?commit_sha=$COMMIT_SHA")
+
+          BUILD_HTTP=$(echo "$BUILD_RESPONSE" | tail -1)
+          BUILD_BODY=$(echo "$BUILD_RESPONSE" | sed '$d')
+
+          if [ "$BUILD_HTTP" != "200" ]; then
+            echo "⚠️ Could not find build for commit $COMMIT_SHA (HTTP $BUILD_HTTP)"
+            echo "Skipping deployment recording"
+            exit 0
+          fi
+
+          BUILD_ID=$(echo "$BUILD_BODY" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])" 2>/dev/null || echo "")
+
+          if [ -z "$BUILD_ID" ]; then
+            echo "⚠️ Could not extract build_id from response"
+            exit 0
+          fi
+
+          echo "Found build: $BUILD_ID"
+          echo "Recording deployment..."
+
+          DEPLOY_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            "$CLOUDFORGE_API_URL/api/deployments" \
+            -H "Content-Type: application/json" \
+            -H "x-cloudforge-secret: $CLOUDFORGE_API_SECRET" \
+            -d "{
+              \"build_id\": \"$BUILD_ID\",
+              \"environment\": \"render\",
+              \"version\": \"$COMMIT_SHA\",
+              \"status\": \"deployed\",
+              \"url\": \"https://cloudforge-z44c.onrender.com\"
+            }")
+
+          DEPLOY_HTTP=$(echo "$DEPLOY_RESPONSE" | tail -1)
+          DEPLOY_BODY=$(echo "$DEPLOY_RESPONSE" | sed '$d')
+
+          echo "API Response ($DEPLOY_HTTP): $DEPLOY_BODY"
+
+          if [ "$DEPLOY_HTTP" -ge 200 ] && [ "$DEPLOY_HTTP" -lt 300 ]; then
+            echo "✅ Deployment recorded successfully"
+          else
+            echo "⚠️ Failed to record deployment (non-critical)"
+          fi
 
       - name: Deployment summary
         run: |
@@ -62,7 +109,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Commit | \`$(git rev-parse --short HEAD)\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | \`$(echo "${{ github.event.workflow_run.head_sha }}" | cut -c1-7)\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Branch | main |" >> $GITHUB_STEP_SUMMARY
           echo "| Time | $(date -u +"%Y-%m-%d %H:%M:%S UTC") |" >> $GITHUB_STEP_SUMMARY
           echo "| Status | ✅ Deployed |" >> $GITHUB_STEP_SUMMARY
