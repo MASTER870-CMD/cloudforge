@@ -334,7 +334,7 @@ ${logText}
 
 Keep the summary concise and format it with clear markdown headings.`;
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -359,7 +359,7 @@ Keep the summary concise and format it with clear markdown headings.`;
         ref_id,
         ref_type,
         summary: summaryText,
-        model: 'gemini-1.5-flash'
+        model: 'gemini-3.6-flash'
       });
 
       res.status(201).json(summary);
