@@ -2,6 +2,14 @@ const request = require('supertest');
 const app = require('../src/server');
 
 describe('CloudForge API', () => {
+  beforeAll(async () => {
+    await app.initPromise;
+  });
+
+  afterAll(async () => {
+    const store = require('../src/data/store');
+    await store.closeDB();
+  });
   // ---------- Health ----------
   describe('GET /api/health', () => {
     it('should return healthy status', async () => {

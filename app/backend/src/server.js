@@ -16,36 +16,36 @@ const app = express();
 app.set('trust proxy', 1); // Trust Render's reverse proxy for correct IP rate limiting
 const PORT = process.env.PORT || 3000;
 
+// ---------- Middleware ----------
+applySecurityMiddleware(app);
+app.use(morgan('combined')); // HTTP request logging
+app.use(express.json({ limit: '1mb' })); // Parse JSON bodies, cap at 1MB
+
+// ---------- API Routes ----------
+app.use('/api', apiRouter);
+
+// ---------- Serve Frontend (static files) ----------
+const frontendPath = path.join(__dirname, '..', '..', 'frontend');
+app.use(express.static(frontendPath));
+
+// Catch-all: serve index.html for any non-API route (SPA-style)
+app.get('*', (req, res) => {
+  res.sendFile(path.join(frontendPath, 'index.html'));
+});
+
+// ---------- Error handler ----------
+app.use((err, req, res, _next) => {
+  console.error('[CloudForge Error]', err.stack);
+  res.status(500).json({
+    error: 'Internal server error',
+    message: process.env.NODE_ENV === 'development' ? err.message : undefined,
+  });
+});
+
 // ---------- Initialize database & Start Server ----------
-store.initDB().then(() => {
+app.initPromise = store.initDB().then(() => {
   console.log('Database initialized successfully.');
   
-  // ---------- Middleware ----------
-  applySecurityMiddleware(app);
-  app.use(morgan('combined')); // HTTP request logging
-  app.use(express.json({ limit: '1mb' })); // Parse JSON bodies, cap at 1MB
-
-  // ---------- API Routes ----------
-  app.use('/api', apiRouter);
-
-  // ---------- Serve Frontend (static files) ----------
-  const frontendPath = path.join(__dirname, '..', '..', 'frontend');
-  app.use(express.static(frontendPath));
-
-  // Catch-all: serve index.html for any non-API route (SPA-style)
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(frontendPath, 'index.html'));
-  });
-
-  // ---------- Error handler ----------
-  app.use((err, req, res, _next) => {
-    console.error('[CloudForge Error]', err.stack);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: process.env.NODE_ENV === 'development' ? err.message : undefined,
-    });
-  });
-
   if (process.env.NODE_ENV !== 'test') {
     // Verify Build Signature
     const expectedHash = '01a91b801ce25ccd475085060a1b6463cfda6d7d5d6bf262b618023bfcd1013e';
