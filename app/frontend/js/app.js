@@ -38,7 +38,15 @@ function formatDuration(ms) {
 function formatTime(dateStr) {
   if (!dateStr) return '—';
   try {
-    const d = new Date(dateStr.replace(' ', 'T') + 'Z');
+    let d = new Date(dateStr);
+    
+    // Fallback for older SQLite timestamps (YYYY-MM-DD HH:MM:SS)
+    if (isNaN(d.getTime())) {
+      d = new Date(dateStr.replace(' ', 'T') + 'Z');
+    }
+    
+    if (isNaN(d.getTime())) return dateStr;
+
     const now = new Date();
     const diff = now - d;
 
