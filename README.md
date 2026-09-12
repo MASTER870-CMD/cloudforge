@@ -228,7 +228,7 @@ cloudforge/
 >
 > "I built CloudForge — a complete CI/CD pipeline that automates the entire software delivery process. When I push code to GitHub, it automatically runs linting and tests, builds a Docker image, pushes it to a registry, and deploys it with zero downtime using Kubernetes rolling updates.
 >
-> The infrastructure is defined as code using Terraform, so I can spin up the entire environment with one command. I also built an AI-powered log analyzer that uses Google's Gemini API to read deployment logs and generate plain-English summaries — so anyone on the team can understand what happened without reading raw logs.
+> The infrastructure is defined as code using Terraform, so I can spin up the entire environment with one command. I also built an AI-powered log analyzer that uses Google's Gemini API to read deployment logs and generate plain-English summaries — so anyone on the team can understand what happened without reading raw logs..
 >
 > Everything runs on free tools — Docker, Minikube, LocalStack for AWS simulation, and GitHub Actions for CI/CD. The app is publicly deployed on Render's free tier."
 
